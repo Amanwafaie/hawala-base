@@ -1,4 +1,4 @@
-var CACHE='hawalabase-shell-v1';
+var CACHE='hawalabase-shell-v2';
 var BASE=self.location.href.replace(/sw\.js(\?.*)?$/,'');
 var SELF_URL=BASE+'index.html';
 var FB='https://www.gstatic.com/firebasejs/8.10.1/';

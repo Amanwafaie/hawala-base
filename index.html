@@ -772,8 +772,7 @@ function pa(id){return (db.personal||[]).find(function(a){return a.id===id})}
 /* ---------- cloud sync (optional, Firebase) ---------- */
 var FB_KEY='hawalabase_fb_cfg';
 var FB_OFF_KEY='hawalabase_fb_off';
-/* FIREBASE-NEW-PROJECT: مقدار فایربیس پروژهٔ جدید اینجا گذاشته می‌شود. تا آن موقع null است و برنامه فقط روی گوشی کار می‌کند. */
-var FB_DEFAULT=null;
+var FB_DEFAULT={apiKey:'AIzaSyBVpUqexrSobwwvqJWaHgfAvsfPYfy7snc',authDomain:'hawalabase.firebaseapp.com',projectId:'hawalabase',appId:'1:796357967535:web:91ca8aefbd8818f7081e5a'};
 var fb={app:null,auth:null,db:null,user:null,unsub:null};
 var applyingRemote=false;
 function loadFbConfig(){
