@@ -679,7 +679,8 @@ function appTitle(){return myName()||'دفتر حواله‌بیس'}
 function norm(s){return toLatin(s).toLowerCase().trim()}
 
 /* ---------- data ---------- */
-function blank(){return {v:2,theme:'night',digits:'fa',dateFmt:'jalali',lang:'fa',lastBackup:'',debtThreshold:500000,inactiveDays:30,settingsUpdatedAt:'',myName:'',addrs:[],cloudDeleted:[],companies:[],personal:[]}}
+function blank(){return {v:2,theme:'night',digits:'fa',dateFmt:'jalali',lang:'fa',lastBackup:'',debtThreshold:500000,inactiveDays:30,settingsUpdatedAt:'',myName:'',myPhone:'',addrs:[],cloudDeleted:[],companies:[],personal:[]}}
+function hmOf(iso){var d=new Date(iso||'');if(!iso||isNaN(d))return '';return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function cleanList(a){
   return (Array.isArray(a)?a:[]).filter(function(r){return r&&typeof r==='object'}).map(function(r){
     var dt=/^\d{4}-\d{2}-\d{2}$/.test(r.date)?r.date:todayISO();
@@ -691,7 +692,7 @@ function cleanList(a){
       no:String(r.no==null?'':r.no).slice(0,20),idCard:String(r.idCard||'').slice(0,40),
       sender:String(r.sender||'').slice(0,100),receiver:String(r.receiver||'').slice(0,100),
       fatherName:String(r.fatherName||'').slice(0,100),
-      time:/^\d{2}:\d{2}$/.test(String(r.time||''))?String(r.time):'',
+      time:/^\d{2}:\d{2}$/.test(String(r.time||''))?String(r.time):hmOf(r.createdAt),
       phone:String(r.phone||'').slice(0,30),phoneType:r.phoneType==='cu'?'cu':'hd',
       amount:Math.max(0,Math.floor(Number(r.amount)||0)),
       place:String(r.place||'').slice(0,100),notes:String(r.notes||'').slice(0,500),
@@ -745,6 +746,7 @@ function sanitize(d){
   if(d&&typeof d.lastBackup==='string')out.lastBackup=d.lastBackup;
   if(d&&typeof d.settingsUpdatedAt==='string')out.settingsUpdatedAt=d.settingsUpdatedAt;
   if(d&&typeof d.myName==='string')out.myName=d.myName.slice(0,60);
+  if(d&&typeof d.myPhone==='string')out.myPhone=d.myPhone.slice(0,30);
   out.addrs=cleanAddrs(d&&d.addrs);
   if(Array.isArray(d&&d.cloudDeleted))out.cloudDeleted=d.cloudDeleted.filter(function(x){return x&&x.k&&x.u}).map(function(x){return {k:String(x.k),t:String(x.t||''),c:String(x.c||''),i:String(x.i||''),u:String(x.u)}});
   (Array.isArray(d&&d.companies)?d.companies:[]).forEach(function(c){
@@ -821,7 +823,7 @@ function clearCloudDeleted(t,c,i){var k=entKey(t,c||'',i);db.cloudDeleted=(db.cl
 function tombOf(k){return (db.cloudDeleted||[]).find(function(x){return x.k===k})||null}
 function allEntities(d,withSettings){
   var m={};
-  if(withSettings)m[entKey('settings','','s')]={t:'settings',c:'',i:'s',u:d.settingsUpdatedAt||'',data:{debtThreshold:d.debtThreshold,inactiveDays:d.inactiveDays,myName:d.myName||'',addrs:d.addrs||[]}};
+  if(withSettings)m[entKey('settings','','s')]={t:'settings',c:'',i:'s',u:d.settingsUpdatedAt||'',data:{debtThreshold:d.debtThreshold,inactiveDays:d.inactiveDays,myName:d.myName||'',myPhone:d.myPhone||'',addrs:d.addrs||[]}};
   d.companies.forEach(function(c){
     m[entKey('company','',c.id)]={t:'company',c:'',i:c.id,u:tsOf(c),data:{id:c.id,name:c.name,note:c.note,pinned:!!c.pinned,createdAt:c.createdAt}};
     ['read','paid'].forEach(function(k){c[k].forEach(function(r){m[entKey(k,c.id,r.id)]={t:k,c:c.id,i:r.id,u:tsOf(r),data:r}})});
@@ -933,6 +935,7 @@ function applyEntity(e){
       if(Number(x.inactiveDays)>0)db.inactiveDays=Math.floor(Number(x.inactiveDays));
       if(Array.isArray(x.addrs))db.addrs=cleanAddrs(x.addrs);
       if(typeof x.myName==='string')db.myName=x.myName.slice(0,60);
+      if(typeof x.myPhone==='string')db.myPhone=x.myPhone.slice(0,30);
       db.settingsUpdatedAt=e.u;return true;
     }
     return false;
@@ -1477,9 +1480,9 @@ V.detail=function(p){
   var c=co(p.cid),r=c[p.kind].find(function(x){return x.id===p.rid});
   var rows=[[L('تاریخ'),fmtDate(r.date)]].concat(r.time?[[L('ساعت ثبت'),D(r.time)]]:[],[[L('فرستنده'),esc(r.sender)],[L('گیرنده'),esc(r.receiver)]]);
   if(r.fatherName)rows.push([L('ولد گیرنده'),esc(r.fatherName)]);
-  if(r.phone)rows.push([L(PH_T[r.phoneType]||PH_T.hd),'<span dir="ltr">'+D(esc(r.phone))+'</span>']);
   if(r.idCard)rows.push([L('شماره تذکره'),D(esc(r.idCard))]);
   rows.push([L('محل پرداخت'),esc(r.place)]);
+  if(r.phone)rows.push([L(PH_T[r.phoneType]||PH_T.hd),'<span dir="ltr">'+D(esc(r.phone))+'</span>']);
   if(r.notes)rows.push([L('توضیحات'),esc(r.notes)]);
   rows.push([L('تعداد ارسال'),D(r.shares)+' '+L('بار')]);
   if(r.createdBy)rows.push([L('ثبت‌شده توسط'),esc(r.createdBy)]);
@@ -1515,8 +1518,8 @@ V.form=function(p){
   field('f_amt',L('مبلغ به عدد (افغانی)'),amt,{amt:true,num:true,ltr:true})+
   '<div class="field"><label>'+L('مبلغ به حروف')+'</label><div class="words-box" id="amtWords">'+(r?words(r.amount)+' '+L('افغانی'):'—')+'</div></div>'+
   placeField(r?r.place:'')+
-  field('f_notes',L('توضیحات (اختیاری)'),r?r.notes:'',{area:true})+
   phoneField(r?r.phone:'',r?r.phoneType:'hd')+
+  field('f_notes',L('توضیحات (اختیاری)'),r?r.notes:'',{area:true})+
   '<div class="btns"><button class="btn pri" data-act="saveRem">'+L(edit?'ذخیره تغییرات':'ثبت حواله')+'</button><button class="btn" data-act="back">'+L('انصراف')+'</button></div></main>';
 };
 
@@ -1865,6 +1868,7 @@ function commonItems(noBackup){
   return (noBackup?[]:[{a:'backupSheet',t:'پشتیبان‌گیری و بازیابی'}]).concat([{a:'themeSheet',t:'تم و نمایش'},{a:'thresholdSheet',t:'تنظیم آستانهٔ پیگیری'},{a:'lockSheet',t:'تأیید هویت'}]);
 }
 A.homeMenu=function(){
+  ui.addrTab='addr';
   openMenu([
     (deferredInstall?[{a:'installApp',t:'نصب برنامه روی گوشی'}]:[]).concat([{a:'nameSheet',t:'نام شرکت من'},{a:'cloudSheet',t:'ابری و همگام‌سازی'},{a:'addrSheet',t:'آدرس‌های ثبت‌شده'},{a:'accountInfo',t:'حساب کاربری و ورود'}]),
     commonItems(),
@@ -2156,8 +2160,9 @@ function shareText(c,r){
     '#⃣ نمبر حواله: '+D(r.no),'#⃣ نمبر تذکره: '+(r.idCard?D(r.idCard):''),
     '👤 فرستنده: '+r.sender,'👤 گیرنده: '+r.receiver]);
   L.push('👥 ولد گیرنده: '+(r.fatherName||''));
+  L.push('💰 مبلغ: '+money(r.amount)+' افغانی','💰 مبلغ به حروف: '+words(r.amount)+' افغانی','📍 محل پرداخت: '+r.place);
   if(r.phone)L.push('📞 '+PH_T[r.phoneType||'hd']+': '+D(r.phone));
-  L.push('💰 مبلغ: '+money(r.amount)+' افغانی','💰 مبلغ به حروف: '+words(r.amount)+' افغانی','📍 محل پرداخت: '+r.place,'توضیحات: '+(r.notes||''));
+  L.push('توضیحات: '+(r.notes||''));
   return L.join('\n');
 }
 function curRem(){
@@ -2199,7 +2204,6 @@ function receiptCardHTML(c,r){
   box.push(rcDivider(),rcRow(RC_ICONS.user,L('فرستنده'),r.sender));
   box.push(rcDivider(),rcRow(RC_ICONS.user,L('گیرنده'),r.receiver));
   if(r.fatherName)box.push(rcDivider(),rcRow(RC_ICONS.user2,L('ولد گیرنده'),r.fatherName));
-  if(r.phone)box.push(rcDivider(),rcRow(RC_ICONS.phone,L(PH_T[r.phoneType||'hd']),D(r.phone)));
   var amtRow='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 4px">'+
     '<div><div style="font-size:26px;font-weight:800;color:#fff">'+money(r.amount)+'</div><div style="font-size:13px;color:#9fc1ff;margin-top:2px">'+L('افغانی')+'</div></div>'+
     '<span style="color:#9fc1ff;font-size:13px;display:flex;align-items:center;gap:8px">'+L('مبلغ')+'<span style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#3390ec,#1a5fb4);display:flex;align-items:center;justify-content:center">'+RC_ICONS.money+'</span></span>'+
@@ -2207,7 +2211,7 @@ function receiptCardHTML(c,r){
   var wordsBox='<div style="border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:12px 14px;margin:4px 0 14px">'+
     '<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;color:#9fc1ff;font-size:13px;margin-bottom:6px">'+L('مبلغ به حروف')+'<span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#2a5fd6,#1a3f9e);display:flex;align-items:center;justify-content:center">'+RC_ICONS.coins+'</span></div>'+
     '<div style="font-size:17px;font-weight:700;color:#fff">'+words(r.amount)+' '+L('افغانی')+'</div></div>';
-  var placeRow=r.place?rcRow(RC_ICONS.pin,L('محل پرداخت'),r.place):'';
+  var placeRow=(r.place?rcRow(RC_ICONS.pin,L('محل پرداخت'),r.place):'')+(r.phone?rcRow(RC_ICONS.phone,L(PH_T[r.phoneType||'hd']),D(r.phone)):'');
   return ''+
   '<div style="width:400px;font-family:Vazirmatn,Tahoma,sans-serif;direction:'+(db.lang==='en'?'ltr':'rtl')+';background:radial-gradient(circle at 30% 0%,#123068,#050b1c 70%);border-radius:22px;box-shadow:0 0 0 1px rgba(120,170,255,.25) inset;color:#fff;position:relative;overflow:hidden">'+
     RC_WAVES_TOP+
@@ -2508,18 +2512,32 @@ A.phoneDrop=function(){
 };
 A.phonePick=function(el){
   var i=$('#f_phone'),d=$('#phdrop'),k=el.dataset.v==='cu'?'cu':'hd';
-  i.dataset.t=k;$('#phLbl').textContent=L(PH_T[k])+' '+L('(اختیاری)');if(d)d.hidden=true;i.focus();
+  i.dataset.t=k;$('#phLbl').textContent=L(PH_T[k])+' '+L('(اختیاری)');if(d)d.hidden=true;
+  if(k==='hd'){if(db.myPhone)i.value=db.myPhone}else if(db.myPhone&&toLatin(i.value).trim()===db.myPhone)i.value='';
+  i.focus();
 };
 A.addrPick=function(el){var i=$('#f_place');i.value=el.dataset.v;var d=$('#pdrop');if(d)d.hidden=true;var f=$('#fld_f_place');if(f)f.classList.remove('err');var m=$('#msg_f_place');if(m)m.hidden=true};
 document.addEventListener('click',function(e){['pdrop','phdrop'].forEach(function(id){var d=document.getElementById(id);if(d&&!d.hidden&&!e.target.closest('.pw'))d.hidden=true})});
 function addrStamp(){db.settingsUpdatedAt=nowISO();save()}
 A.addrSheet=function(){
   closeAddrMenu();
+  var tab=ui.addrTab==='phone'?'phone':'addr';
+  var tabs='<div class="tabs no-print" style="margin:0 0 12px"><button class="'+(tab==='addr'?'on':'')+'" data-act="addrTab" data-t="addr">'+L('آدرس‌ها')+'</button><button class="'+(tab==='phone'?'on':'')+'" data-act="addrTab" data-t="phone">'+L('شماره حواله‌دار')+'</button></div>';
+  if(tab==='phone'){
+    openSheet('<h2 class="mh">'+L('آدرس‌های ثبت‌شده')+'</h2>'+tabs+'<p class="mu" style="margin:0 6px 12px">'+L('شمارهٔ حواله‌دار را یک بار اینجا ثبت کنید. هنگام ثبت حواله با زدن ^ و انتخاب «شماره حواله‌دار» خودکار پر می‌شود.')+'</p>'+
+      '<div class="sgrp">'+field('my_phone','شمارهٔ حواله‌دار',db.myPhone||'',{ltr:true,num:true})+'</div>'+
+      '<div class="btns"><button class="btn pri" data-act="savePhoneNo">'+L('ذخیره')+'</button></div>');
+    return;
+  }
   var l=addrSorted();
-  openSheet('<h2 class="mh">'+L('آدرس‌های ثبت‌شده')+'</h2><p class="mu" style="margin:0 6px 12px">'+L('این آدرس‌ها هنگام ثبت حواله در فهرست «محل پرداخت» پیشنهاد می‌شوند. آدرس پرکاربردتر بالاتر می‌آید.')+'</p>'+
+  openSheet('<h2 class="mh">'+L('آدرس‌های ثبت‌شده')+'</h2>'+tabs+'<p class="mu" style="margin:0 6px 12px">'+L('این آدرس‌ها هنگام ثبت حواله در فهرست «محل پرداخت» پیشنهاد می‌شوند. آدرس پرکاربردتر بالاتر می‌آید.')+'</p>'+
     '<div class="sgrp">'+(l.length?l.map(function(a){return '<div class="arow"><span>'+esc(a.n)+(a.c?' <small class="mu">('+D(a.c)+')</small>':'')+'</span><button class="adots" data-act="addrMenu" data-v="'+esc(a.n)+'" aria-label="'+esc(L('گزینه‌ها'))+'"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div>'}).join(''):'<div class="pem">'+L('هنوز آدرسی ثبت نشده')+'</div>')+'</div>'+
     '<div class="sgrp">'+field('ad_new','آدرس تازه','')+'</div>'+
     '<div class="btns"><button class="btn pri" data-act="addrAdd">'+L('افزودن')+'</button></div>');
+};
+A.addrTab=function(el){ui.addrTab=el.dataset.t==='phone'?'phone':'addr';A.addrSheet()};
+A.savePhoneNo=function(){
+  db.myPhone=toLatin($('#my_phone').value).trim().slice(0,30);addrStamp();toast(L('ذخیره شد'));
 };
 A.addrAdd=function(){
   var v=$('#ad_new').value.trim().slice(0,100);if(!v)return;
