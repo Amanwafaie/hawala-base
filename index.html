@@ -2160,7 +2160,7 @@ function shareText(c,r){
     '#⃣ نمبر حواله: '+D(r.no),'#⃣ نمبر تذکره: '+(r.idCard?D(r.idCard):''),
     '👤 فرستنده: '+r.sender,'👤 گیرنده: '+r.receiver]);
   L.push('👥 ولد گیرنده: '+(r.fatherName||''));
-  L.push('💰 مبلغ: '+money(r.amount)+' افغانی','💰 مبلغ به حروف: '+words(r.amount)+' افغانی','📍 محل پرداخت: '+r.place);
+  L.push('💰 مبلغ: '+money(r.amount)+' افغانی','💰 مبلغ به حروف: '+words(r.amount)+' افغانی',line,'📍 محل پرداخت: '+r.place);
   if(r.phone)L.push('📞 '+PH_T[r.phoneType||'hd']+': '+D(r.phone));
   L.push('توضیحات: '+(r.notes||''));
   return L.join('\n');
