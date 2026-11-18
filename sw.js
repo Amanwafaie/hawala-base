@@ -1,4 +1,4 @@
-var CACHE='hawalabase-shell-v6';
+var CACHE='hawalabase-shell-v7';
 var BASE=self.location.href.replace(/sw\.js(\?.*)?$/,'');
 var SELF_URL=BASE+'index.html';
 var FB='https://www.gstatic.com/firebasejs/8.10.1/';
@@ -12,7 +12,7 @@ var EXTRA=[
 self.addEventListener('install',function(e){
   e.waitUntil(
     caches.open(CACHE).then(function(c){
-      return c.add(SELF_URL).then(function(){
+      return c.add(new Request(SELF_URL,{cache:'reload'})).then(function(){return c.add(new Request(BASE,{cache:'reload'})).catch(function(){})}).then(function(){
         return Promise.all(['manifest.webmanifest','icon-192.png','icon-512.png'].map(function(f){return c.add(BASE+f).catch(function(){})}));
       }).then(function(){
         return Promise.all(EXTRA.map(function(u){

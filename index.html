@@ -804,9 +804,11 @@ function loadScript(src){
   return new Promise(function(res,rej){
     var ex=document.querySelector('script[src="'+src+'"]');
     if(ex){if(ex.dataset.loaded==='1')return res();ex.addEventListener('load',res);ex.addEventListener('error',rej);return}
-    var s=document.createElement('script');s.src=src;s.onload=function(){s.dataset.loaded='1';res()};s.onerror=rej;document.head.appendChild(s);
+    var s=document.createElement('script');s.src=src;s.onload=function(){s.dataset.loaded='1';res()};s.onerror=function(e){try{s.remove()}catch(x){}rej(e)};document.head.appendChild(s);
   });
 }
+function isOff(){return typeof navigator.onLine==='boolean'&&!navigator.onLine}
+function offlineNote(){toast('بدون اینترنت هستید؛ کار شما روی همین گوشی ذخیره می‌شود و با وصل شدن اینترنت خودکار همگام می‌شود')}
 function docRef(){return fb.db.collection('hawala_shared').doc('data')}
 /* Per-record sync inside the SAME Firestore document (no rules change needed).
    Every record is its own field under "recs", so two people editing different
@@ -920,7 +922,7 @@ function cloudPush(){
       return docRef().set({recs:recs,dels:dels,by:fb.user.email,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
     }).then(function(){
       sentR.forEach(function(p){pushedTs[p[0]]=p[1]});sentD.forEach(function(p){pushedDel[p[0]]=p[1]});
-    }).catch(function(){toast('همگام‌سازی ابری ناموفق بود؛ اینترنت را بررسی کنید')});
+    }).catch(function(){if(isOff())offlineNote();else toast('همگام‌سازی ابری ناموفق بود؛ اینترنت را بررسی کنید')});
   },600);
 }
 function parseRec(v){try{var o=JSON.parse(v);return o&&o.t&&o.i!=null?o:null}catch(e){return null}}
@@ -1041,7 +1043,7 @@ function onCloudSnap(snap){
 function startCloudSync(){
   var gate=document.getElementById('loginGate');if(gate)gate.remove();
   if(fb.unsub)return;
-  fb.unsub=docRef().onSnapshot(onCloudSnap,function(){toast('خطا در دریافت داده‌های ابری')});
+  fb.unsub=docRef().onSnapshot(onCloudSnap,function(){if(isOff())offlineNote();else toast('خطا در دریافت داده‌های ابری')});
 }
 function stopCloudSync(){if(fb.unsub){fb.unsub();fb.unsub=null}}
 function showLoginGate(){
@@ -1073,10 +1075,10 @@ function initCloud(){
       fb.auth=firebase.auth();fb.db=firebase.firestore();
       fb.auth.onAuthStateChanged(function(u){
         fb.user=u;
-        if(u){startCloudSync()}else{stopCloudSync();showLoginGate()}
+        if(u){startCloudSync()}else{stopCloudSync();if(isOff()){fb.pendingGate=true;offlineNote()}else showLoginGate()}
       });
     })
-    .catch(function(){toast('اتصال ابری برقرار نشد؛ اینترنت یا تنظیمات را بررسی کنید')});
+    .catch(function(){if(isOff())offlineNote();else toast('اتصال ابری برقرار نشد؛ اینترنت یا تنظیمات را بررسی کنید')});
 }
 function calc(list){return {count:list.length,total:list.reduce(function(a,r){return a+r.amount},0)}}
 function statusOf(diff){return diff>0?'debt':diff<0?'cred':'zero'}
@@ -2603,6 +2605,15 @@ if(lockOn)document.documentElement.classList.add('locked');
 render();
 if(lockOn)showLockGate();
 if(cloudEnabled())initCloud();
+/* وقتی اینترنت دوباره وصل شد: اتصال ابری را دوباره بسازد و کارهای ثبت‌شدهٔ آفلاین را بفرستد */
+function onBackOnline(){
+  if(!cloudEnabled())return;
+  if(!fb.auth){initCloud();return}
+  if(fb.user){if(!fb.unsub)startCloudSync();cloudPush();toast('اینترنت وصل شد؛ در حال همگام‌سازی...')}
+  else if(fb.pendingGate){fb.pendingGate=false;showLoginGate()}
+}
+window.addEventListener('online',onBackOnline);
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&!isOff()&&cloudEnabled()&&(!fb.auth||(fb.user&&!fb.unsub)))onBackOnline()});
 (function(){
   var s=document.getElementById('splash');
   if(s){s.style.opacity='0';setTimeout(function(){s.remove()},300)}
